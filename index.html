@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Hello PWA</title>
+    
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="style.css">
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+
+    <!-- iOS Specific configuration -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Hello PWA">
+    
+    <!-- 
+      iOS Icon: You must place a png named 'icon-192.png' in the root. 
+      iOS doesn't use the manifest icons for the home screen automatically.
+    -->
+    <link rel="apple-touch-icon" href="icon-192.png">
+</head>
+<body>
+
+    <div class="app-container">
+        <h1>PWA Demo</h1>
+        <p>This app works offline.</p>
+        <button id="hello-btn" class="action-btn">Click Me</button>
+        <div id="message-output"></div>
+    </div>
+
+    <script>
+        // 1. App Logic
+        const btn = document.getElementById('hello-btn');
+        const output = document.getElementById('message-output');
+
+        btn.addEventListener('click', () => {
+            output.textContent = "Hello World! 🌍";
+            output.style.opacity = 1;
+        });
+
+        // 2. Service Worker Registration
+        // We check if the browser supports Service Workers
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => {
+                        console.log('ServiceWorker registration successful: ', reg.scope);
+                        
+                        reg.addEventListener('updatefound', () => {
+                            const newWorker = reg.installing;
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    showUpdateNotification(newWorker);
+                                }
+                            });
+                        });
+                    })
+                    .catch(err => console.log('ServiceWorker registration failed: ', err));
+            });
+
+            let refreshing;
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (refreshing) return;
+                window.location.reload();
+                refreshing = true;
+            });
+        }
+
+        function showUpdateNotification(worker) {
+            const div = document.createElement('div');
+            div.className = 'update-notification';
+            div.innerHTML = '<span>New version available</span> <button class="update-btn">Refresh</button>';
+            document.body.appendChild(div);
+            div.querySelector('button').addEventListener('click', () => {
+                worker.postMessage({ type: 'SKIP_WAITING' });
+            });
+        }
+    </script>
+</body>
+</html>
