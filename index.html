@@ -25,21 +25,175 @@
 <body>
 
     <div class="app-container">
-        <h1>PWA Demo</h1>
-        <p>This app works offline.</p>
-        <button id="hello-btn" class="action-btn">Click Me</button>
-        <div id="message-output"></div>
+        <div class="app-header">
+            <h1>Tech Tracker</h1>
+        </div>
+
+        <!-- VIEW 1: Hardware News -->
+        <div id="view-news" class="view-container active-view">
+            <div id="ptr-indicator" class="ptr-indicator">
+                <div id="ptr-spinner" class="ptr-spinner"></div>
+                <span id="ptr-text">Pull down to refresh</span>
+            </div>
+            <div id="news-content"></div>
+        </div>
+
+        <!-- VIEW 2: Gemini Chat -->
+        <div id="view-chat" class="view-container">
+            <div class="chat-messages" id="chat-history">
+                <div class="message msg-ai">Hello! I can help you with tech specs and pricing analysis.</div>
+            </div>
+            <div class="chat-input-area">
+                <input type="text" id="chat-input" placeholder="Ask Gemini..." style="flex:1; padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
+                <button id="chat-send" class="action-btn" style="width: auto;">Send</button>
+            </div>
+        </div>
+
+        <!-- Bottom Navigation -->
+        <nav class="bottom-nav">
+            <button class="nav-btn active" onclick="switchTab('news')">Market Watch</button>
+            <button class="nav-btn" onclick="switchTab('chat')">Gemini Chat</button>
+        </nav>
     </div>
 
     <script>
-        // 1. App Logic
-        const btn = document.getElementById('hello-btn');
-        const output = document.getElementById('message-output');
+        // --- 1. Tab Switching Logic ---
+        function switchTab(tabName) {
+            // Hide all views
+            document.querySelectorAll('.view-container').forEach(el => el.classList.remove('active-view'));
+            document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+            
+            // Show selected
+            document.getElementById(`view-${tabName}`).classList.add('active-view');
+            
+            // Highlight button (simple logic based on order)
+            const btnIndex = tabName === 'news' ? 0 : 1;
+            document.querySelectorAll('.nav-btn')[btnIndex].classList.add('active');
+        }
 
-        btn.addEventListener('click', () => {
-            output.textContent = "Hello World! 🌍";
-            output.style.opacity = 1;
+        // --- 2. Hardware News Logic ---
+        let hardwareData = [
+            { name: "NVIDIA H100 80GB", price: "$30,000 - $40,000", desc: "Hopper architecture. High demand stabilizing, lead times reducing." },
+            { name: "NVIDIA A100 80GB", price: "$12,000 - $15,000", desc: "Ampere architecture. Robust availability on secondary markets." },
+            { name: "AMD Instinct MI300X", price: "$15,000 - $20,000", desc: "Strong competitor in generative AI inference benchmarks." },
+            { name: "AMD Instinct MI350X", price: "Est. Q4 2024", desc: "Upcoming CDNA 4. Expected to rival H200 in memory bandwidth." },
+            { name: "NVIDIA RTX 4090", price: "$1,850", desc: "Consumer flagship. Pricing slightly up due to import restrictions in some regions." }
+        ];
+
+        const newsContent = document.getElementById('news-content');
+        
+        function renderNews() {
+            newsContent.innerHTML = '';
+            hardwareData.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'price-card';
+                card.innerHTML = `
+                    <div class="price-header">
+                        <span class="hardware-name">${item.name}</span>
+                        <span class="hardware-price">${item.price}</span>
+                    </div>
+                    <div class="price-desc">${item.desc}</div>
+                `;
+                newsContent.appendChild(card);
+            });
+        }
+        renderNews();
+
+        // Pull-to-Refresh Logic
+        const viewNews = document.getElementById('view-news');
+        const ptrIndicator = document.getElementById('ptr-indicator');
+        const ptrSpinner = document.getElementById('ptr-spinner');
+        const ptrText = document.getElementById('ptr-text');
+        let startY = 0;
+
+        viewNews.addEventListener('touchstart', (e) => {
+            if (viewNews.scrollTop === 0) startY = e.touches[0].clientY;
+        }, { passive: true });
+
+        viewNews.addEventListener('touchmove', (e) => {
+            const delta = e.touches[0].clientY - startY;
+            if (viewNews.scrollTop === 0 && delta > 0 && delta < 200) {
+                ptrIndicator.style.marginTop = `${delta - 50}px`;
+                ptrText.innerText = delta > 60 ? 'Release to refresh' : 'Pull down to refresh';
+            }
+        }, { passive: true });
+
+        viewNews.addEventListener('touchend', () => {
+            const margin = parseInt(ptrIndicator.style.marginTop || '-50');
+            if (margin > -10) {
+                ptrIndicator.style.marginTop = '0px';
+                ptrText.innerText = 'Updating prices...';
+                ptrSpinner.style.display = 'block';
+                setTimeout(updatePrices, 1500);
+            } else {
+                ptrIndicator.style.marginTop = '-50px';
+            }
         });
+
+        function updatePrices() {
+            // Simulate price fluctuation
+            hardwareData = hardwareData.map(d => ({ ...d, price: d.price.replace(/\$([0-9,]+)/g, (m, p1) => '$' + Math.floor(parseInt(p1.replace(/,/g,'')) * (0.95 + Math.random() * 0.1)).toLocaleString()) }));
+            renderNews();
+            ptrSpinner.style.display = 'none';
+            ptrIndicator.style.marginTop = '-50px';
+        }
+
+        // --- 3. Chat Logic ---
+        const chatInput = document.getElementById('chat-input');
+        const chatSend = document.getElementById('chat-send');
+        const chatHistory = document.getElementById('chat-history');
+
+        // Placeholder for Gemini API Key - DO NOT EXPOSE REAL KEYS IN CLIENT SIDE CODE
+        const GEMINI_API_KEY = ""; 
+
+        chatSend.addEventListener('click', handleChat);
+        
+        async function handleChat() {
+            const text = chatInput.value.trim();
+            if (!text) return;
+
+            // 1. Add User Message
+            addMessage(text, 'user');
+            chatInput.value = '';
+
+            // 2. Add Loading State
+            const loadingId = addMessage("Thinking...", 'ai');
+
+            // 3. Mock or Real Call
+            let responseText = "";
+            
+            if (GEMINI_API_KEY) {
+                // Real API implementation would go here using fetch() to Google Generative AI REST API
+                // This requires a backend proxy to be secure.
+                responseText = "Error: API calls require a backend to hide your API key.";
+            } else {
+                // Simulation for Demo purposes
+                await new Promise(r => setTimeout(r, 1000));
+                responseText = simulateGeminiResponse(text);
+            }
+
+            // 4. Update UI
+            const loadingMsg = document.querySelector(`[data-id="${loadingId}"]`);
+            if (loadingMsg) loadingMsg.textContent = responseText;
+        }
+
+        function addMessage(text, sender) {
+            const msgDiv = document.createElement('div');
+            const id = Date.now();
+            msgDiv.className = `message msg-${sender}`;
+            msgDiv.textContent = text;
+            msgDiv.setAttribute('data-id', id);
+            chatHistory.appendChild(msgDiv);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+            return id;
+        }
+
+        function simulateGeminiResponse(input) {
+            const lower = input.toLowerCase();
+            if (lower.includes('price') || lower.includes('cost')) return "Based on current market data, H100s are trading around $30k, while the MI300X offers a competitive alternative around $15k-$20k.";
+            if (lower.includes('nvidia') || lower.includes('h100')) return "The NVIDIA H100 is currently the industry standard for LLM training, featuring the Transformer Engine.";
+            return "I can help you analyze hardware trends. Try asking about 'H100 prices' or 'AMD specs'.";
+        }
 
         // 2. Service Worker Registration
         // We check if the browser supports Service Workers
