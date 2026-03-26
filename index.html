@@ -108,18 +108,18 @@
         // --- 2b. Speaker Prices Logic ---
         const DEFAULT_SPEAKER_MODEL = 'KEF LS60 Wireless';
         const ALL_SPEAKERS_FILTER = 'All speakers';
+        const SCRAPE_PROXY_BASE = 'https://r.jina.ai/http://';
 
         const speakersData = [
             { model: DEFAULT_SPEAKER_MODEL, shop: "Stassen Hifi", price: "EUR 4,999 / pair", desc: "KEF LS60 Wireless in multiple finishes, Dutch shipping available.", url: "https://www.stassen.nl" },
             { model: DEFAULT_SPEAKER_MODEL, shop: "HelloTV", price: "EUR 4,999 / pair", desc: "Online listing for LS60 Wireless, often bundled with setup service.", url: "https://www.hellotv.nl" },
-            { model: DEFAULT_SPEAKER_MODEL, shop: "Wifimedia", price: "EUR 4,999 / pair", desc: "Specialist audio retailer in NL with in-store demo availability.", url: "https://www.wifimedia.eu" },
-            { model: DEFAULT_SPEAKER_MODEL, shop: "Eijerkamp", price: "EUR 4,999 / pair", desc: "Premium audio catalog entry for KEF LS60 Wireless.", url: "https://www.eijerkamp.nl" },
             { model: DEFAULT_SPEAKER_MODEL, shop: "Hifi Klubben (NL)", price: "EUR 4,999 / pair", desc: "Dutch branch listing and local support options.", url: "https://www.hifiklubben.nl" }
         ];
 
         const SPEAKERS_STORAGE_KEY = 'kef-ls60-custom-sites';
         let currentSpeakerFilter = DEFAULT_SPEAKER_MODEL;
         let editingCustomIndex = null;
+        let monitorState = { running: false, message: '' };
 
         const speakersContent = document.getElementById('speakers-content');
 
@@ -166,13 +166,71 @@
             return `https://${trimmed}`;
         }
 
+        function scrapeProxyUrl(url) {
+            return `${SCRAPE_PROXY_BASE}${normalizeUrl(url).replace(/^https?:\/\//, '')}`;
+        }
+
+        function extractPriceFromText(text) {
+            const matches = [...text.matchAll(/(?:EUR|\u20AC)\s*([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{2})?)/gi)];
+            if (!matches.length) return null;
+            const raw = matches[0][1].replace(/\s+/g, '');
+            return `EUR ${raw}`;
+        }
+
+        function formatCheckedAt(ts) {
+            if (!ts) return '';
+            return new Date(ts).toLocaleString();
+        }
+
+        async function refreshWebPrices() {
+            if (monitorState.running) return;
+
+            monitorState.running = true;
+            monitorState.message = 'Refreshing web prices...';
+            renderSpeakers();
+
+            const customSites = getCustomSpeakerSites();
+            const targets = customSites
+                .map((item, index) => ({ item, index }))
+                .filter(({ item }) => item.url)
+                .filter(({ item }) => currentSpeakerFilter === ALL_SPEAKERS_FILTER || item.model === currentSpeakerFilter);
+
+            let updated = 0;
+            for (const target of targets) {
+                try {
+                    const response = await fetch(scrapeProxyUrl(target.item.url), { cache: 'no-store' });
+                    if (!response.ok) throw new Error('Non-OK response');
+
+                    const bodyText = await response.text();
+                    const scrapedPrice = extractPriceFromText(bodyText);
+
+                    customSites[target.index].checkedAt = Date.now();
+                    if (scrapedPrice) {
+                        customSites[target.index].price = scrapedPrice;
+                        customSites[target.index].lastError = '';
+                        updated += 1;
+                    } else {
+                        customSites[target.index].lastError = 'No EUR price found on page';
+                    }
+                } catch {
+                    customSites[target.index].checkedAt = Date.now();
+                    customSites[target.index].lastError = 'Could not fetch page';
+                }
+            }
+
+            saveCustomSpeakerSites(customSites);
+            monitorState.running = false;
+            monitorState.message = `Checked ${targets.length} website(s), updated ${updated}.`;
+            renderSpeakers();
+        }
+
         function renderSpeakers() {
             speakersContent.innerHTML = '';
 
             const info = document.createElement('div');
             info.className = 'price-card';
             info.innerHTML = `
-                <div class="price-desc">Track online prices for different speaker models from shops in the Netherlands. Values are indicative and can change quickly.</div>
+                <div class="price-desc">Track online prices for different speaker models from shops in the Netherlands. Add direct product page URLs to enable web price refresh.</div>
             `;
             speakersContent.appendChild(info);
 
@@ -188,14 +246,20 @@
                 <select id="speaker-filter" class="site-input">
                     ${models.map(model => `<option value="${model}" ${model === currentSpeakerFilter ? 'selected' : ''}>${model}</option>`).join('')}
                 </select>
+                <div class="monitor-row">
+                    <button id="refresh-prices-btn" class="action-btn" ${monitorState.running ? 'disabled' : ''}>${monitorState.running ? 'Refreshing...' : 'Refresh web prices'}</button>
+                    <div class="monitor-status">${monitorState.message}</div>
+                </div>
             `;
             speakersContent.appendChild(filterCard);
 
             const speakerFilter = filterCard.querySelector('#speaker-filter');
+            const refreshPricesBtn = filterCard.querySelector('#refresh-prices-btn');
             speakerFilter.addEventListener('change', () => {
                 currentSpeakerFilter = speakerFilter.value;
                 renderSpeakers();
             });
+            refreshPricesBtn.addEventListener('click', refreshWebPrices);
 
             const formCard = document.createElement('div');
             formCard.className = 'price-card';
@@ -205,7 +269,7 @@
                     <input id="site-model" class="site-input" type="text" placeholder="Speaker model (required)" value="${currentSpeakerFilter === ALL_SPEAKERS_FILTER ? DEFAULT_SPEAKER_MODEL : currentSpeakerFilter}">
                     <input id="site-shop" class="site-input" type="text" placeholder="Shop name (required)">
                     <input id="site-price" class="site-input" type="text" placeholder="Price e.g. EUR 4,899 / pair">
-                    <input id="site-url" class="site-input" type="url" placeholder="Website URL e.g. shop.nl/product">
+                    <input id="site-url" class="site-input" type="url" placeholder="Product URL for scraping e.g. shop.nl/kef-ls60">
                     <input id="site-desc" class="site-input" type="text" placeholder="Short note">
                 </div>
                 <div class="site-form-actions">
@@ -288,6 +352,8 @@
                     <div class="speaker-model">${item.model || DEFAULT_SPEAKER_MODEL}</div>
                     <div class="price-desc">${item.desc}</div>
                     ${item.url ? `<a class="shop-link" href="${item.url}" target="_blank" rel="noopener noreferrer">Visit website</a>` : ''}
+                    ${item._isCustom && item.checkedAt ? `<div class="check-meta">Last checked: ${formatCheckedAt(item.checkedAt)}</div>` : ''}
+                    ${item._isCustom && item.lastError ? `<div class="check-meta error-meta">${item.lastError}</div>` : ''}
                     ${item._isCustom ? `<div class="item-actions"><button class="small-btn site-edit-btn" data-index="${item._customIndex}">Edit</button><button class="small-btn small-btn-danger site-delete-btn" data-index="${item._customIndex}">Delete</button></div>` : ''}
                 `;
                 speakersContent.appendChild(card);

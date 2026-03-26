@@ -93,6 +93,25 @@ body {
     margin-top: 12px;
 }
 
+.monitor-row {
+    margin-top: 12px;
+}
+
+.monitor-row .action-btn {
+    padding: 10px 16px;
+}
+
+.monitor-row .action-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.monitor-status {
+    margin-top: 8px;
+    font-size: 0.85rem;
+    color: #666;
+}
+
 .secondary-btn {
     background-color: #8e8e93;
 }
@@ -131,6 +150,16 @@ body {
     display: flex;
     gap: 8px;
     margin-top: 10px;
+}
+
+.check-meta {
+    margin-top: 6px;
+    font-size: 0.8rem;
+    color: #6b6b70;
+}
+
+.error-meta {
+    color: #b23a3a;
 }
 
 .small-btn {
