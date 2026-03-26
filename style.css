@@ -93,6 +93,10 @@ body {
     margin-top: 12px;
 }
 
+.secondary-btn {
+    background-color: #8e8e93;
+}
+
 .form-message {
     margin-top: 8px;
     font-size: 0.85rem;
@@ -110,6 +114,38 @@ body {
 
 .shop-link:hover {
     text-decoration: underline;
+}
+
+.speaker-model {
+    display: inline-block;
+    margin-bottom: 8px;
+    font-size: 0.8rem;
+    color: #444;
+    background: #f0f1f5;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-weight: 600;
+}
+
+.item-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.small-btn {
+    border: none;
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #fff;
+    background: #4f86ff;
+    cursor: pointer;
+}
+
+.small-btn-danger {
+    background: #d94b4b;
 }
 
 /* --- Chat Interface --- */

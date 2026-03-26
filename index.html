@@ -49,7 +49,7 @@
             </div>
         </div>
 
-        <!-- VIEW 3: KEF LS60 NL Prices -->
+        <!-- VIEW 3: Speaker Prices -->
         <div id="view-speakers" class="view-container">
             <div id="speakers-content"></div>
         </div>
@@ -58,7 +58,7 @@
         <nav class="bottom-nav">
             <button class="nav-btn active" data-tab="news" onclick="switchTab('news')">Market Watch</button>
             <button class="nav-btn" data-tab="chat" onclick="switchTab('chat')">Gemini Chat</button>
-            <button class="nav-btn" data-tab="speakers" onclick="switchTab('speakers')">KEF LS60 NL</button>
+            <button class="nav-btn" data-tab="speakers" onclick="switchTab('speakers')">Speakers NL</button>
         </nav>
     </div>
 
@@ -105,16 +105,21 @@
         }
         renderNews();
 
-        // --- 2b. KEF LS60 NL Prices Logic ---
+        // --- 2b. Speaker Prices Logic ---
+        const DEFAULT_SPEAKER_MODEL = 'KEF LS60 Wireless';
+        const ALL_SPEAKERS_FILTER = 'All speakers';
+
         const speakersData = [
-            { shop: "Stassen Hifi", price: "EUR 4,999 / pair", desc: "KEF LS60 Wireless in multiple finishes, Dutch shipping available.", url: "https://www.stassen.nl" },
-            { shop: "HelloTV", price: "EUR 4,999 / pair", desc: "Online listing for LS60 Wireless, often bundled with setup service.", url: "https://www.hellotv.nl" },
-            { shop: "Wifimedia", price: "EUR 4,999 / pair", desc: "Specialist audio retailer in NL with in-store demo availability.", url: "https://www.wifimedia.eu" },
-            { shop: "Eijerkamp", price: "EUR 4,999 / pair", desc: "Premium audio catalog entry for KEF LS60 Wireless.", url: "https://www.eijerkamp.nl" },
-            { shop: "Hifi Klubben (NL)", price: "EUR 4,999 / pair", desc: "Dutch branch listing and local support options.", url: "https://www.hifiklubben.nl" }
+            { model: DEFAULT_SPEAKER_MODEL, shop: "Stassen Hifi", price: "EUR 4,999 / pair", desc: "KEF LS60 Wireless in multiple finishes, Dutch shipping available.", url: "https://www.stassen.nl" },
+            { model: DEFAULT_SPEAKER_MODEL, shop: "HelloTV", price: "EUR 4,999 / pair", desc: "Online listing for LS60 Wireless, often bundled with setup service.", url: "https://www.hellotv.nl" },
+            { model: DEFAULT_SPEAKER_MODEL, shop: "Wifimedia", price: "EUR 4,999 / pair", desc: "Specialist audio retailer in NL with in-store demo availability.", url: "https://www.wifimedia.eu" },
+            { model: DEFAULT_SPEAKER_MODEL, shop: "Eijerkamp", price: "EUR 4,999 / pair", desc: "Premium audio catalog entry for KEF LS60 Wireless.", url: "https://www.eijerkamp.nl" },
+            { model: DEFAULT_SPEAKER_MODEL, shop: "Hifi Klubben (NL)", price: "EUR 4,999 / pair", desc: "Dutch branch listing and local support options.", url: "https://www.hifiklubben.nl" }
         ];
 
         const SPEAKERS_STORAGE_KEY = 'kef-ls60-custom-sites';
+        let currentSpeakerFilter = DEFAULT_SPEAKER_MODEL;
+        let editingCustomIndex = null;
 
         const speakersContent = document.getElementById('speakers-content');
 
@@ -132,6 +137,28 @@
             localStorage.setItem(SPEAKERS_STORAGE_KEY, JSON.stringify(items));
         }
 
+        function getAllSpeakerSites() {
+            const customSites = getCustomSpeakerSites().map((item, index) => ({
+                ...item,
+                _isCustom: true,
+                _customIndex: index
+            }));
+            const defaultSites = speakersData.map(item => ({
+                ...item,
+                _isCustom: false
+            }));
+            return [...customSites, ...defaultSites];
+        }
+
+        function getSpeakerModels() {
+            const models = new Set(
+                getAllSpeakerSites()
+                    .map(item => item.model)
+                    .filter(Boolean)
+            );
+            return [ALL_SPEAKERS_FILTER, ...Array.from(models)];
+        }
+
         function normalizeUrl(value) {
             const trimmed = value.trim();
             if (!trimmed) return '';
@@ -145,39 +172,81 @@
             const info = document.createElement('div');
             info.className = 'price-card';
             info.innerHTML = `
-                <div class="price-desc">KEF LS60 Wireless online prices from shops in the Netherlands. Values are indicative and can change quickly.</div>
+                <div class="price-desc">Track online prices for different speaker models from shops in the Netherlands. Values are indicative and can change quickly.</div>
             `;
             speakersContent.appendChild(info);
+
+            const models = getSpeakerModels();
+            if (!models.includes(currentSpeakerFilter)) {
+                currentSpeakerFilter = ALL_SPEAKERS_FILTER;
+            }
+
+            const filterCard = document.createElement('div');
+            filterCard.className = 'price-card';
+            filterCard.innerHTML = `
+                <div class="form-title">Speaker model</div>
+                <select id="speaker-filter" class="site-input">
+                    ${models.map(model => `<option value="${model}" ${model === currentSpeakerFilter ? 'selected' : ''}>${model}</option>`).join('')}
+                </select>
+            `;
+            speakersContent.appendChild(filterCard);
+
+            const speakerFilter = filterCard.querySelector('#speaker-filter');
+            speakerFilter.addEventListener('change', () => {
+                currentSpeakerFilter = speakerFilter.value;
+                renderSpeakers();
+            });
 
             const formCard = document.createElement('div');
             formCard.className = 'price-card';
             formCard.innerHTML = `
-                <div class="form-title">Add website</div>
+                <div class="form-title">Add or edit website</div>
                 <div class="site-form-grid">
+                    <input id="site-model" class="site-input" type="text" placeholder="Speaker model (required)" value="${currentSpeakerFilter === ALL_SPEAKERS_FILTER ? DEFAULT_SPEAKER_MODEL : currentSpeakerFilter}">
                     <input id="site-shop" class="site-input" type="text" placeholder="Shop name (required)">
                     <input id="site-price" class="site-input" type="text" placeholder="Price e.g. EUR 4,899 / pair">
                     <input id="site-url" class="site-input" type="url" placeholder="Website URL e.g. shop.nl/product">
                     <input id="site-desc" class="site-input" type="text" placeholder="Short note">
                 </div>
                 <div class="site-form-actions">
-                    <button id="site-add-btn" class="action-btn">Add website</button>
+                    <button id="site-save-btn" class="action-btn">Add website</button>
+                    <button id="site-cancel-btn" class="action-btn secondary-btn" style="display:none; margin-top: 8px;">Cancel edit</button>
                 </div>
                 <div id="site-form-message" class="form-message"></div>
             `;
             speakersContent.appendChild(formCard);
 
-            const siteAddBtn = formCard.querySelector('#site-add-btn');
+            const siteSaveBtn = formCard.querySelector('#site-save-btn');
+            const siteCancelBtn = formCard.querySelector('#site-cancel-btn');
             const siteMessage = formCard.querySelector('#site-form-message');
+            const siteModel = formCard.querySelector('#site-model');
             const siteShop = formCard.querySelector('#site-shop');
             const sitePrice = formCard.querySelector('#site-price');
             const siteUrl = formCard.querySelector('#site-url');
             const siteDesc = formCard.querySelector('#site-desc');
 
-            siteAddBtn.addEventListener('click', () => {
+            function resetForm() {
+                editingCustomIndex = null;
+                siteSaveBtn.textContent = 'Add website';
+                siteCancelBtn.style.display = 'none';
+                siteModel.value = currentSpeakerFilter === ALL_SPEAKERS_FILTER ? DEFAULT_SPEAKER_MODEL : currentSpeakerFilter;
+                siteShop.value = '';
+                sitePrice.value = '';
+                siteUrl.value = '';
+                siteDesc.value = '';
+            }
+
+            siteSaveBtn.addEventListener('click', () => {
+                const model = siteModel.value.trim();
                 const shop = siteShop.value.trim();
                 const price = sitePrice.value.trim() || 'Price not listed';
                 const url = normalizeUrl(siteUrl.value);
                 const desc = siteDesc.value.trim() || 'User-added website.';
+
+                if (!model) {
+                    siteMessage.textContent = 'Please enter a speaker model.';
+                    return;
+                }
 
                 if (!shop) {
                     siteMessage.textContent = 'Please enter a shop name.';
@@ -185,18 +254,28 @@
                 }
 
                 const customSites = getCustomSpeakerSites();
-                customSites.unshift({ shop, price, desc, url });
+                if (editingCustomIndex === null) {
+                    customSites.unshift({ model, shop, price, desc, url });
+                } else {
+                    customSites[editingCustomIndex] = { model, shop, price, desc, url };
+                }
                 saveCustomSpeakerSites(customSites);
+                currentSpeakerFilter = model;
 
-                siteMessage.textContent = 'Website added.';
-                siteShop.value = '';
-                sitePrice.value = '';
-                siteUrl.value = '';
-                siteDesc.value = '';
+                siteMessage.textContent = editingCustomIndex === null ? 'Website added.' : 'Website updated.';
+                resetForm();
                 renderSpeakers();
             });
 
-            const allSpeakerSites = [...getCustomSpeakerSites(), ...speakersData];
+            siteCancelBtn.addEventListener('click', () => {
+                siteMessage.textContent = 'Edit cancelled.';
+                resetForm();
+            });
+
+            const allSpeakerSites = getAllSpeakerSites().filter(item => {
+                if (currentSpeakerFilter === ALL_SPEAKERS_FILTER) return true;
+                return item.model === currentSpeakerFilter;
+            });
 
             allSpeakerSites.forEach(item => {
                 const card = document.createElement('div');
@@ -206,10 +285,46 @@
                         <span class="hardware-name">${item.shop}</span>
                         <span class="hardware-price">${item.price}</span>
                     </div>
+                    <div class="speaker-model">${item.model || DEFAULT_SPEAKER_MODEL}</div>
                     <div class="price-desc">${item.desc}</div>
                     ${item.url ? `<a class="shop-link" href="${item.url}" target="_blank" rel="noopener noreferrer">Visit website</a>` : ''}
+                    ${item._isCustom ? `<div class="item-actions"><button class="small-btn site-edit-btn" data-index="${item._customIndex}">Edit</button><button class="small-btn small-btn-danger site-delete-btn" data-index="${item._customIndex}">Delete</button></div>` : ''}
                 `;
                 speakersContent.appendChild(card);
+            });
+
+            speakersContent.querySelectorAll('.site-edit-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const index = Number(btn.getAttribute('data-index'));
+                    const customSites = getCustomSpeakerSites();
+                    const selected = customSites[index];
+                    if (!selected) return;
+
+                    editingCustomIndex = index;
+                    siteSaveBtn.textContent = 'Save changes';
+                    siteCancelBtn.style.display = 'block';
+                    siteMessage.textContent = 'Editing custom website.';
+                    siteModel.value = selected.model || DEFAULT_SPEAKER_MODEL;
+                    siteShop.value = selected.shop || '';
+                    sitePrice.value = selected.price || '';
+                    siteUrl.value = selected.url || '';
+                    siteDesc.value = selected.desc || '';
+                    siteModel.focus();
+                });
+            });
+
+            speakersContent.querySelectorAll('.site-delete-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const index = Number(btn.getAttribute('data-index'));
+                    const customSites = getCustomSpeakerSites();
+                    const selected = customSites[index];
+                    if (!selected) return;
+
+                    customSites.splice(index, 1);
+                    saveCustomSpeakerSites(customSites);
+                    if (editingCustomIndex === index) editingCustomIndex = null;
+                    renderSpeakers();
+                });
             });
         }
         renderSpeakers();
