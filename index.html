@@ -49,10 +49,16 @@
             </div>
         </div>
 
+        <!-- VIEW 3: KEF LS60 NL Prices -->
+        <div id="view-speakers" class="view-container">
+            <div id="speakers-content"></div>
+        </div>
+
         <!-- Bottom Navigation -->
         <nav class="bottom-nav">
-            <button class="nav-btn active" onclick="switchTab('news')">Market Watch</button>
-            <button class="nav-btn" onclick="switchTab('chat')">Gemini Chat</button>
+            <button class="nav-btn active" data-tab="news" onclick="switchTab('news')">Market Watch</button>
+            <button class="nav-btn" data-tab="chat" onclick="switchTab('chat')">Gemini Chat</button>
+            <button class="nav-btn" data-tab="speakers" onclick="switchTab('speakers')">KEF LS60 NL</button>
         </nav>
     </div>
 
@@ -66,9 +72,9 @@
             // Show selected
             document.getElementById(`view-${tabName}`).classList.add('active-view');
             
-            // Highlight button (simple logic based on order)
-            const btnIndex = tabName === 'news' ? 0 : 1;
-            document.querySelectorAll('.nav-btn')[btnIndex].classList.add('active');
+            // Highlight matching button
+            const activeBtn = document.querySelector(`.nav-btn[data-tab="${tabName}"]`);
+            if (activeBtn) activeBtn.classList.add('active');
         }
 
         // --- 2. Hardware News Logic ---
@@ -98,6 +104,115 @@
             });
         }
         renderNews();
+
+        // --- 2b. KEF LS60 NL Prices Logic ---
+        const speakersData = [
+            { shop: "Stassen Hifi", price: "EUR 4,999 / pair", desc: "KEF LS60 Wireless in multiple finishes, Dutch shipping available.", url: "https://www.stassen.nl" },
+            { shop: "HelloTV", price: "EUR 4,999 / pair", desc: "Online listing for LS60 Wireless, often bundled with setup service.", url: "https://www.hellotv.nl" },
+            { shop: "Wifimedia", price: "EUR 4,999 / pair", desc: "Specialist audio retailer in NL with in-store demo availability.", url: "https://www.wifimedia.eu" },
+            { shop: "Eijerkamp", price: "EUR 4,999 / pair", desc: "Premium audio catalog entry for KEF LS60 Wireless.", url: "https://www.eijerkamp.nl" },
+            { shop: "Hifi Klubben (NL)", price: "EUR 4,999 / pair", desc: "Dutch branch listing and local support options.", url: "https://www.hifiklubben.nl" }
+        ];
+
+        const SPEAKERS_STORAGE_KEY = 'kef-ls60-custom-sites';
+
+        const speakersContent = document.getElementById('speakers-content');
+
+        function getCustomSpeakerSites() {
+            try {
+                const raw = localStorage.getItem(SPEAKERS_STORAGE_KEY);
+                const parsed = raw ? JSON.parse(raw) : [];
+                return Array.isArray(parsed) ? parsed : [];
+            } catch {
+                return [];
+            }
+        }
+
+        function saveCustomSpeakerSites(items) {
+            localStorage.setItem(SPEAKERS_STORAGE_KEY, JSON.stringify(items));
+        }
+
+        function normalizeUrl(value) {
+            const trimmed = value.trim();
+            if (!trimmed) return '';
+            if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
+            return `https://${trimmed}`;
+        }
+
+        function renderSpeakers() {
+            speakersContent.innerHTML = '';
+
+            const info = document.createElement('div');
+            info.className = 'price-card';
+            info.innerHTML = `
+                <div class="price-desc">KEF LS60 Wireless online prices from shops in the Netherlands. Values are indicative and can change quickly.</div>
+            `;
+            speakersContent.appendChild(info);
+
+            const formCard = document.createElement('div');
+            formCard.className = 'price-card';
+            formCard.innerHTML = `
+                <div class="form-title">Add website</div>
+                <div class="site-form-grid">
+                    <input id="site-shop" class="site-input" type="text" placeholder="Shop name (required)">
+                    <input id="site-price" class="site-input" type="text" placeholder="Price e.g. EUR 4,899 / pair">
+                    <input id="site-url" class="site-input" type="url" placeholder="Website URL e.g. shop.nl/product">
+                    <input id="site-desc" class="site-input" type="text" placeholder="Short note">
+                </div>
+                <div class="site-form-actions">
+                    <button id="site-add-btn" class="action-btn">Add website</button>
+                </div>
+                <div id="site-form-message" class="form-message"></div>
+            `;
+            speakersContent.appendChild(formCard);
+
+            const siteAddBtn = formCard.querySelector('#site-add-btn');
+            const siteMessage = formCard.querySelector('#site-form-message');
+            const siteShop = formCard.querySelector('#site-shop');
+            const sitePrice = formCard.querySelector('#site-price');
+            const siteUrl = formCard.querySelector('#site-url');
+            const siteDesc = formCard.querySelector('#site-desc');
+
+            siteAddBtn.addEventListener('click', () => {
+                const shop = siteShop.value.trim();
+                const price = sitePrice.value.trim() || 'Price not listed';
+                const url = normalizeUrl(siteUrl.value);
+                const desc = siteDesc.value.trim() || 'User-added website.';
+
+                if (!shop) {
+                    siteMessage.textContent = 'Please enter a shop name.';
+                    return;
+                }
+
+                const customSites = getCustomSpeakerSites();
+                customSites.unshift({ shop, price, desc, url });
+                saveCustomSpeakerSites(customSites);
+
+                siteMessage.textContent = 'Website added.';
+                siteShop.value = '';
+                sitePrice.value = '';
+                siteUrl.value = '';
+                siteDesc.value = '';
+                renderSpeakers();
+            });
+
+            const allSpeakerSites = [...getCustomSpeakerSites(), ...speakersData];
+
+            allSpeakerSites.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'price-card';
+                card.innerHTML = `
+                    <div class="price-header">
+                        <span class="hardware-name">${item.shop}</span>
+                        <span class="hardware-price">${item.price}</span>
+                    </div>
+                    <div class="price-desc">${item.desc}</div>
+                    ${item.url ? `<a class="shop-link" href="${item.url}" target="_blank" rel="noopener noreferrer">Visit website</a>` : ''}
+                `;
+                speakersContent.appendChild(card);
+            });
+        }
+        renderSpeakers();
 
         // Pull-to-Refresh Logic
         const viewNews = document.getElementById('view-news');
